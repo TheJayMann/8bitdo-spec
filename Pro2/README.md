@@ -261,20 +261,53 @@ as swapping sticks, swapping triggers, swapping axis, etc.  The first
 four byte value is the enable flag, and t remaining four byte value is
 a 32 bit set of selected options.  This is repeated for each profile.
 
-While attempting to see which bits correspond to which feature, I was
-initially only able to find how the bits are encoded for the SN30 Pro+.
-While it is possible the Pro2 uses the same encoding, I am not yet
-able to validate this via code analysis.  Rather, at some point I will
-instead select various options and anylize the configuration data.
+
+| Bit | Function                       |
+|-----|--------------------------------|
+|   0 | Swap left stick X axis         |
+|   1 | Swap left stick Y axis         |
+|   2 | Swap right stick X axis        |
+|   3 | Swap right stick Y axis        |
+|   4 | Swap left and right sticks     |
+|   5 | Unused                         |
+|   6 | Unused                         |
+|   7 | Swap left and right triggers   |
+|   8 | Swap left stick and D-Pad      |
+|   9 | Unknown                        |
+|  10 | Swap right stick and triggers  |
+|  11 | Rumble high motion sensitivity |
+|  12 | Unknown                        |
+|  13 | Unused                         |
+|  14 | Unused                         |
+|  15 | Unused                         |
+|  16 | Unused                         |
+|  17 | Unused                         |
+|  18 | Unused                         |
+|  19 | Unused                         |
+|  20 | Unused                         |
+|  21 | Unused                         |
+|  22 | Unused                         |
+|  23 | Unused                         |
+|  24 | Unused                         |
+|  25 | Unused                         |
+|  26 | Unused                         |
+|  27 | Unused                         |
+|  28 | Unused                         |
+|  29 | Unused                         |
+|  30 | Unused                         |
+|  31 | Unused                         |
+
+While there does appear to be functionality associated with bit 9 and bit 12, I was unable
+to find any user interface options within the Ultimate Software which actually set the bits.
 
 |Offset|Size|Description                            |
 |------|----|---------------------------------------|
 |  0xC8|   4| Profile 1 Special Feature Enable Flag |
-|  0xCC|   1| Profile 1 Special Feature Bit Set     |
+|  0xCC|   4| Profile 1 Special Feature Bit Set     |
 |  0xD0|   4| Profile 1 Special Feature Enable Flag |
-|  0xD4|   1| Profile 1 Special Feature Bit Set     |
+|  0xD4|   4| Profile 1 Special Feature Bit Set     |
 |  0xD8|   4| Profile 1 Special Feature Enable Flag |
-|  0xDC|   1| Profile 1 Special Feature Bit Set     |
+|  0xDC|   4| Profile 1 Special Feature Bit Set     |
 
 
 ## Button mapping (252 bytes) WIP
