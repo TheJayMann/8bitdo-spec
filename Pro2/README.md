@@ -167,6 +167,11 @@ the Ultimate Software suggests that the filenames for the profiles can come
 from ini configuration files if the configuration file is not using a default
 filename.
 
+Attempting to set these values directly and examining the results in the Ultimate
+Software shows that these filenames are displayed as custom names for the profile,
+and are encoded as UTF16LE, allowing each profile to have up to a 16 character
+custom name.
+
 |Offset|Size|Description         |
 |------|----|--------------------|
 |  0x14|  32| Profile 1 Filename |
