@@ -116,7 +116,7 @@ arbitrary data, should be ignored (46 bytes)
 
 The provided <diWritePro2.sh> script will write a properly formatted binary configuration file to the device.  The first parameter must be to the correct `hidraw` file, and the second parameter must be to the file containing the configuration data.
 
-# Configuration Binary Format WIP
+# Configuration Binary Format
 
 The configuration binary format is a 1652 byte record containing information
 on how to configure each of the three profiles available on the controller.
@@ -260,11 +260,11 @@ are 255.  The values are encoded identially to the Joystick section.
 |  0xC7|   1| Profile 3 Right Trigger End Value   |
 
 
-## Special Features (24 bytes) WIP
+## Special Features (24 bytes)
 The special features section encodes various additional options, such
 as swapping sticks, swapping triggers, swapping axis, etc.  The first
-four byte value is the enable flag, and t remaining four byte value is
-a 32 bit set of selected options.  This is repeated for each profile.
+four byte value is the enable flag, and the remaining four byte value
+is a 32 bit set of selected options.  This is repeated for each profile.
 
 
 | Bit | Function                       |
@@ -315,7 +315,7 @@ to find any user interface options within the Ultimate Software which actually s
 |  0xDC|   4| Profile 1 Special Feature Bit Set     |
 
 
-## Button mapping (252 bytes) WIP
+## Button mapping (252 bytes)
 The button mapping sections assigns functions to physical button presses.
 A function can either be a button, a macro, or a built in process such
 as enabling turbo mode or dynamic button swapping.  The first four byte
@@ -364,8 +364,7 @@ values.
 |    30 | Unknown             |
 |    31 | Unknown             |
 
-Given that the four most significant bits are currently unknown, it seems
-likely that they may correspond to the four available custom macros to assign.
+
 
 |Offset|Size|Description                           |
 |------|----|--------------------------------------|
@@ -434,22 +433,757 @@ likely that they may correspond to the four available custom macros to assign.
 | 0x1D8|   4| Profile 3 Button P2 Function         |
 
 
-## Macros (1176 bytes) WIP
+## Macros (1176 bytes)
 The macro section defines custom macros for the controller.  Each profile
-can have up to four macros defined.  Each macro contains a key map, which
-might correspond to a function value which can be assigned to a button
-mapping, and up to 18 macro steps, each step consisting a number of button
-presses, 8 directional joystick presses, and a delay before processing the
-next step.  While I have not fully analyzed exactly how macros work yet,
-I have included them in the byte map, with the `c` after the enable flag
-indicating the total count of macros, the key map value abbreviated `km`,
-the time interval array abbreviated `t`, the buttons abbreviated `k`, the
-8 directional joystick data as `digital joystic data`, and the `c` after
-the 8 directional joystick data indicating the total count of steps in
-the macro.  In configuration data that I have dumped from my controller
-which have no macros defined, the enable flags are set to the enable
-value, while all other bytes are set to zero.  I assume it is also
-possible to have the entire macro section as zero if macros are not desired.
+can have up to four macros defined.  Each macro is assigned to a button,
+and can contains up to 18 entries. Each entry defines a button input set,
+a joystick input set, and a hold interval.  For each profile, the first
+four byte value is the enable flag.  The next single byte value is the
+total count of macros defined for the profile. The next three bytes are
+used for data alignment and otherwise ignored.  At this point, the first
+macro definition begins.  The first four byte value here is the button
+assigned to the macro.  The value assigned can be found in the button
+mapping table listed above.  If the button assigned to the macro is also
+assigned via button mapping, the macro will override the button mapping.
+The next 18 two byte values are the little end encoded intervals in
+millisecons that the button and joystick data will be held before
+performing the next entry in the macro, or ending the macro, assuming
+the entry is the last in the macro.  A default value of 31 milliseconds
+is assigned by the Ultimate Software if no time interval is specified
+for an entry.  The next 18 two byte values are the little endian encoded
+button mappings for each entry.  The following 18 one byte values are the
+digital joystick values for each entry.  The next byte is a count of the
+number of entries in the macro.  The next byte is used for padding and
+otherwise unused.  This macro definition is then repeated three more times
+to define all four macros for the profile.  This entire profile macro data
+is then repeated two more times to define all three profile macro data.
+
+### Button Bit Set
+The button input bit set used for macros appear to match the low word bits used
+for button mapping, with the exception that Start and Select buttons do not
+appear in the macro editor, and the corresponding bits do not appear to be able
+to be set using the Ultimate Software,and bit 15 is mapped to R2 rather than
+Home.  Also to note is that there is a function in the Ultimate Software which
+swaps the bit for Home and R2 (bits 15 and 17) and back again; it is possible 
+that it does it for this reason.  It is possible that setting bits 0 and 3 may
+allow macros which send Start and Select button presses, but this remains
+untested for now.
+| Bit   | Button input                    |
+|-------|---------------------------------|
+| Empty | No button input                 |
+|     0 | Unused (possibly Start button)  |
+|     1 | L3                              |
+|     2 | R3                              |
+|     3 | Unused (possibly Select button) |
+|     4 | X                               |
+|     5 | Y                               |
+|     6 | Right                           |
+|     7 | Left                            |
+|     8 | Down                            |
+|     9 | Up                              |
+|    10 | L1                              |
+|    11 | R1                              |
+|    12 | B                               |
+|    13 | A                               |
+|    14 | L2                              |
+|    15 | R2                              |
+
+### Digital Joystick Bit Set
+Joystick values set as macro entries are represented as full tilt combinations of
+up, down, left, and right for the left and right joysticks.
+| Bit   | Joystick input      |
+|-------|---------------------|
+| Empty | No joystick input   |
+|     0 | Left stick up       |
+|     1 | Left stick down     |
+|     2 | Left stick left     |
+|     3 | Left stick right    |
+|     4 | Right stick up      |
+|     5 | Right stick down    |
+|     6 | Right stick left    |
+|     7 | Right stick right   |
+
+
+|Offset|Size|Description                                        |
+|------|----|---------------------------------------------------|
+| 0x1DC|   4| Profile 1 Macro Enable Flag                       |
+| 0x1E0|   1| Profile 1 Macro Total Count                       |
+| 0x1E4|   4| Profile 1 Macro 1 Button Assignment               |
+| 0x1E8|   2| Profile 1 Macro 1 Entry 1 Hold Interval           |
+| 0x1EA|   2| Profile 1 Macro 1 Entry 2 Hold Interval           |
+| 0x1EC|   2| Profile 1 Macro 1 Entry 3 Hold Interval           |
+| 0x1EE|   2| Profile 1 Macro 1 Entry 4 Hold Interval           |
+| 0x1F0|   2| Profile 1 Macro 1 Entry 5 Hold Interval           |
+| 0x1F2|   2| Profile 1 Macro 1 Entry 6 Hold Interval           |
+| 0x1F4|   2| Profile 1 Macro 1 Entry 7 Hold Interval           |
+| 0x1F6|   2| Profile 1 Macro 1 Entry 8 Hold Interval           |
+| 0x1F8|   2| Profile 1 Macro 1 Entry 9 Hold Interval           |
+| 0x1FA|   2| Profile 1 Macro 1 Entry 10 Hold Interval          |
+| 0x1FC|   2| Profile 1 Macro 1 Entry 11 Hold Interval          |
+| 0x1FE|   2| Profile 1 Macro 1 Entry 12 Hold Interval          |
+| 0x200|   2| Profile 1 Macro 1 Entry 13 Hold Interval          |
+| 0x202|   2| Profile 1 Macro 1 Entry 14 Hold Interval          |
+| 0x204|   2| Profile 1 Macro 1 Entry 15 Hold Interval          |
+| 0x206|   2| Profile 1 Macro 1 Entry 16 Hold Interval          |
+| 0x208|   2| Profile 1 Macro 1 Entry 17 Hold Interval          |
+| 0x20A|   2| Profile 1 Macro 1 Entry 18 Hold Interval          |
+| 0x20C|   2| Profile 1 Macro 1 Entry 1 Button Input            |
+| 0x20E|   2| Profile 1 Macro 1 Entry 2 Button Input            |
+| 0x210|   2| Profile 1 Macro 1 Entry 3 Button Input            |
+| 0x212|   2| Profile 1 Macro 1 Entry 4 Button Input            |
+| 0x214|   2| Profile 1 Macro 1 Entry 5 Button Input            |
+| 0x216|   2| Profile 1 Macro 1 Entry 6 Button Input            |
+| 0x218|   2| Profile 1 Macro 1 Entry 7 Button Input            |
+| 0x21A|   2| Profile 1 Macro 1 Entry 8 Button Input            |
+| 0x21C|   2| Profile 1 Macro 1 Entry 9 Button Input            |
+| 0x21E|   2| Profile 1 Macro 1 Entry 10 Button Input           |
+| 0x220|   2| Profile 1 Macro 1 Entry 11 Button Input           |
+| 0x222|   2| Profile 1 Macro 1 Entry 12 Button Input           |
+| 0x224|   2| Profile 1 Macro 1 Entry 13 Button Input           |
+| 0x226|   2| Profile 1 Macro 1 Entry 14 Button Input           |
+| 0x228|   2| Profile 1 Macro 1 Entry 15 Button Input           |
+| 0x22A|   2| Profile 1 Macro 1 Entry 16 Button Input           |
+| 0x22C|   2| Profile 1 Macro 1 Entry 17 Button Input           |
+| 0x22E|   2| Profile 1 Macro 1 Entry 18 Button Input           |
+| 0x230|   1| Profile 1 Macro 1 Entry 1 Digital Joystick Input  |
+| 0x231|   1| Profile 1 Macro 1 Entry 2 Digital Joystick Input  |
+| 0x232|   1| Profile 1 Macro 1 Entry 3 Digital Joystick Input  |
+| 0x233|   1| Profile 1 Macro 1 Entry 4 Digital Joystick Input  |
+| 0x234|   1| Profile 1 Macro 1 Entry 5 Digital Joystick Input  |
+| 0x235|   1| Profile 1 Macro 1 Entry 6 Digital Joystick Input  |
+| 0x236|   1| Profile 1 Macro 1 Entry 7 Digital Joystick Input  |
+| 0x237|   1| Profile 1 Macro 1 Entry 8 Digital Joystick Input  |
+| 0x238|   1| Profile 1 Macro 1 Entry 9 Digital Joystick Input  |
+| 0x239|   1| Profile 1 Macro 1 Entry 10 Digital Joystick Input |
+| 0x23A|   1| Profile 1 Macro 1 Entry 11 Digital Joystick Input |
+| 0x23B|   1| Profile 1 Macro 1 Entry 12 Digital Joystick Input |
+| 0x23C|   1| Profile 1 Macro 1 Entry 13 Digital Joystick Input |
+| 0x23D|   1| Profile 1 Macro 1 Entry 14 Digital Joystick Input |
+| 0x23E|   1| Profile 1 Macro 1 Entry 15 Digital Joystick Input |
+| 0x23F|   1| Profile 1 Macro 1 Entry 16 Digital Joystick Input |
+| 0x240|   1| Profile 1 Macro 1 Entry 17 Digital Joystick Input |
+| 0x241|   1| Profile 1 Macro 1 Entry 18 Digital Joystick Input |
+| 0x242|   1| Profile 1 Macro 1 Entry Total Count               |
+| 0x244|   4| Profile 1 Macro 2 Button Assignment               | 
+| 0x248|   2| Profile 1 Macro 2 Entry 1 Hold Interval           |
+| 0x24A|   2| Profile 1 Macro 2 Entry 2 Hold Interval           |
+| 0x24C|   2| Profile 1 Macro 2 Entry 3 Hold Interval           |
+| 0x24E|   2| Profile 1 Macro 2 Entry 4 Hold Interval           |
+| 0x250|   2| Profile 1 Macro 2 Entry 5 Hold Interval           |
+| 0x252|   2| Profile 1 Macro 2 Entry 6 Hold Interval           |
+| 0x254|   2| Profile 1 Macro 2 Entry 7 Hold Interval           |
+| 0x256|   2| Profile 1 Macro 2 Entry 8 Hold Interval           |
+| 0x258|   2| Profile 1 Macro 2 Entry 9 Hold Interval           |
+| 0x25A|   2| Profile 1 Macro 2 Entry 10 Hold Interval          |
+| 0x25C|   2| Profile 1 Macro 2 Entry 11 Hold Interval          |
+| 0x25E|   2| Profile 1 Macro 2 Entry 12 Hold Interval          |
+| 0x260|   2| Profile 1 Macro 2 Entry 13 Hold Interval          |
+| 0x262|   2| Profile 1 Macro 2 Entry 14 Hold Interval          |
+| 0x264|   2| Profile 1 Macro 2 Entry 15 Hold Interval          |
+| 0x266|   2| Profile 1 Macro 2 Entry 16 Hold Interval          |
+| 0x268|   2| Profile 1 Macro 2 Entry 17 Hold Interval          |
+| 0x26A|   2| Profile 1 Macro 2 Entry 18 Hold Interval          |
+| 0x26C|   2| Profile 1 Macro 2 Entry 1 Button Input            |
+| 0x26E|   2| Profile 1 Macro 2 Entry 2 Button Input            |
+| 0x270|   2| Profile 1 Macro 2 Entry 3 Button Input            |
+| 0x272|   2| Profile 1 Macro 2 Entry 4 Button Input            |
+| 0x274|   2| Profile 1 Macro 2 Entry 5 Button Input            |
+| 0x276|   2| Profile 1 Macro 2 Entry 6 Button Input            |
+| 0x278|   2| Profile 1 Macro 2 Entry 7 Button Input            |
+| 0x27A|   2| Profile 1 Macro 2 Entry 8 Button Input            |
+| 0x27C|   2| Profile 1 Macro 2 Entry 9 Button Input            |
+| 0x27E|   2| Profile 1 Macro 2 Entry 10 Button Input           |
+| 0x280|   2| Profile 1 Macro 2 Entry 11 Button Input           |
+| 0x282|   2| Profile 1 Macro 2 Entry 12 Button Input           |
+| 0x284|   2| Profile 1 Macro 2 Entry 13 Button Input           |
+| 0x286|   2| Profile 1 Macro 2 Entry 14 Button Input           |
+| 0x288|   2| Profile 1 Macro 2 Entry 15 Button Input           |
+| 0x28A|   2| Profile 1 Macro 2 Entry 16 Button Input           |
+| 0x28C|   2| Profile 1 Macro 2 Entry 17 Button Input           |
+| 0x28E|   2| Profile 1 Macro 2 Entry 18 Button Input           |
+| 0x290|   1| Profile 1 Macro 2 Entry 1 Digital Joystick Input  |
+| 0x291|   1| Profile 1 Macro 2 Entry 2 Digital Joystick Input  |
+| 0x292|   1| Profile 1 Macro 2 Entry 3 Digital Joystick Input  |
+| 0x293|   1| Profile 1 Macro 2 Entry 4 Digital Joystick Input  |
+| 0x294|   1| Profile 1 Macro 2 Entry 5 Digital Joystick Input  |
+| 0x295|   1| Profile 1 Macro 2 Entry 6 Digital Joystick Input  |
+| 0x296|   1| Profile 1 Macro 2 Entry 7 Digital Joystick Input  |
+| 0x297|   1| Profile 1 Macro 2 Entry 8 Digital Joystick Input  |
+| 0x298|   1| Profile 1 Macro 2 Entry 9 Digital Joystick Input  |
+| 0x299|   1| Profile 1 Macro 2 Entry 10 Digital Joystick Input |
+| 0x29A|   1| Profile 1 Macro 2 Entry 11 Digital Joystick Input |
+| 0x29B|   1| Profile 1 Macro 2 Entry 12 Digital Joystick Input |
+| 0x29C|   1| Profile 1 Macro 2 Entry 13 Digital Joystick Input |
+| 0x29D|   1| Profile 1 Macro 2 Entry 14 Digital Joystick Input |
+| 0x29E|   1| Profile 1 Macro 2 Entry 15 Digital Joystick Input |
+| 0x29F|   1| Profile 1 Macro 2 Entry 16 Digital Joystick Input |
+| 0x2A0|   1| Profile 1 Macro 2 Entry 17 Digital Joystick Input |
+| 0x2A1|   1| Profile 1 Macro 2 Entry 18 Digital Joystick Input |
+| 0x2A2|   1| Profile 1 Macro 2 Entry Total Count               |
+| 0x2A4|   4| Profile 1 Macro 3 Button Assignment               | 
+| 0x2A8|   2| Profile 1 Macro 3 Entry 1 Hold Interval           |
+| 0x2AA|   2| Profile 1 Macro 3 Entry 2 Hold Interval           |
+| 0x2AC|   2| Profile 1 Macro 3 Entry 3 Hold Interval           |
+| 0x2AE|   2| Profile 1 Macro 3 Entry 4 Hold Interval           |
+| 0x2B0|   2| Profile 1 Macro 3 Entry 5 Hold Interval           |
+| 0x2B2|   2| Profile 1 Macro 3 Entry 6 Hold Interval           |
+| 0x2B4|   2| Profile 1 Macro 3 Entry 7 Hold Interval           |
+| 0x2B6|   2| Profile 1 Macro 3 Entry 8 Hold Interval           |
+| 0x2B8|   2| Profile 1 Macro 3 Entry 9 Hold Interval           |
+| 0x2BA|   2| Profile 1 Macro 3 Entry 10 Hold Interval          |
+| 0x2BC|   2| Profile 1 Macro 3 Entry 11 Hold Interval          |
+| 0x2BE|   2| Profile 1 Macro 3 Entry 12 Hold Interval          |
+| 0x2C0|   2| Profile 1 Macro 3 Entry 13 Hold Interval          |
+| 0x2C2|   2| Profile 1 Macro 3 Entry 14 Hold Interval          |
+| 0x2C4|   2| Profile 1 Macro 3 Entry 15 Hold Interval          |
+| 0x2C6|   2| Profile 1 Macro 3 Entry 16 Hold Interval          |
+| 0x2C8|   2| Profile 1 Macro 3 Entry 17 Hold Interval          |
+| 0x2CA|   2| Profile 1 Macro 3 Entry 18 Hold Interval          |
+| 0x2CC|   2| Profile 1 Macro 3 Entry 1 Button Input            |
+| 0x2CE|   2| Profile 1 Macro 3 Entry 2 Button Input            |
+| 0x2D0|   2| Profile 1 Macro 3 Entry 3 Button Input            |
+| 0x2D2|   2| Profile 1 Macro 3 Entry 4 Button Input            |
+| 0x2D4|   2| Profile 1 Macro 3 Entry 5 Button Input            |
+| 0x2D6|   2| Profile 1 Macro 3 Entry 6 Button Input            |
+| 0x2D8|   2| Profile 1 Macro 3 Entry 7 Button Input            |
+| 0x2DA|   2| Profile 1 Macro 3 Entry 8 Button Input            |
+| 0x2DC|   2| Profile 1 Macro 3 Entry 9 Button Input            |
+| 0x2DE|   2| Profile 1 Macro 3 Entry 10 Button Input           |
+| 0x2E0|   2| Profile 1 Macro 3 Entry 11 Button Input           |
+| 0x2E2|   2| Profile 1 Macro 3 Entry 12 Button Input           |
+| 0x2E4|   2| Profile 1 Macro 3 Entry 13 Button Input           |
+| 0x2E6|   2| Profile 1 Macro 3 Entry 14 Button Input           |
+| 0x2E8|   2| Profile 1 Macro 3 Entry 15 Button Input           |
+| 0x2EA|   2| Profile 1 Macro 3 Entry 16 Button Input           |
+| 0x2EC|   2| Profile 1 Macro 3 Entry 17 Button Input           |
+| 0x2EE|   2| Profile 1 Macro 3 Entry 18 Button Input           |
+| 0x2F0|   1| Profile 1 Macro 3 Entry 1 Digital Joystick Input  |
+| 0x2F1|   1| Profile 1 Macro 3 Entry 2 Digital Joystick Input  |
+| 0x2F2|   1| Profile 1 Macro 3 Entry 3 Digital Joystick Input  |
+| 0x2F3|   1| Profile 1 Macro 3 Entry 4 Digital Joystick Input  |
+| 0x2F4|   1| Profile 1 Macro 3 Entry 5 Digital Joystick Input  |
+| 0x2F5|   1| Profile 1 Macro 3 Entry 6 Digital Joystick Input  |
+| 0x2F6|   1| Profile 1 Macro 3 Entry 7 Digital Joystick Input  |
+| 0x2F7|   1| Profile 1 Macro 3 Entry 8 Digital Joystick Input  |
+| 0x2F8|   1| Profile 1 Macro 3 Entry 9 Digital Joystick Input  |
+| 0x2F9|   1| Profile 1 Macro 3 Entry 10 Digital Joystick Input |
+| 0x2FA|   1| Profile 1 Macro 3 Entry 11 Digital Joystick Input |
+| 0x2FB|   1| Profile 1 Macro 3 Entry 12 Digital Joystick Input |
+| 0x2FC|   1| Profile 1 Macro 3 Entry 13 Digital Joystick Input |
+| 0x2FD|   1| Profile 1 Macro 3 Entry 14 Digital Joystick Input |
+| 0x2FE|   1| Profile 1 Macro 3 Entry 15 Digital Joystick Input |
+| 0x2FF|   1| Profile 1 Macro 3 Entry 16 Digital Joystick Input |
+| 0x300|   1| Profile 1 Macro 3 Entry 17 Digital Joystick Input |
+| 0x301|   1| Profile 1 Macro 3 Entry 18 Digital Joystick Input |
+| 0x302|   1| Profile 1 Macro 3 Entry Total Count               |
+| 0x304|   4| Profile 1 Macro 4 Button Assignment               | 
+| 0x308|   2| Profile 1 Macro 4 Entry 1 Hold Interval           |
+| 0x30A|   2| Profile 1 Macro 4 Entry 2 Hold Interval           |
+| 0x30C|   2| Profile 1 Macro 4 Entry 3 Hold Interval           |
+| 0x30E|   2| Profile 1 Macro 4 Entry 4 Hold Interval           |
+| 0x310|   2| Profile 1 Macro 4 Entry 5 Hold Interval           |
+| 0x312|   2| Profile 1 Macro 4 Entry 6 Hold Interval           |
+| 0x314|   2| Profile 1 Macro 4 Entry 7 Hold Interval           |
+| 0x316|   2| Profile 1 Macro 4 Entry 8 Hold Interval           |
+| 0x318|   2| Profile 1 Macro 4 Entry 9 Hold Interval           |
+| 0x31A|   2| Profile 1 Macro 4 Entry 10 Hold Interval          |
+| 0x31C|   2| Profile 1 Macro 4 Entry 11 Hold Interval          |
+| 0x31E|   2| Profile 1 Macro 4 Entry 12 Hold Interval          |
+| 0x320|   2| Profile 1 Macro 4 Entry 13 Hold Interval          |
+| 0x322|   2| Profile 1 Macro 4 Entry 14 Hold Interval          |
+| 0x324|   2| Profile 1 Macro 4 Entry 15 Hold Interval          |
+| 0x326|   2| Profile 1 Macro 4 Entry 16 Hold Interval          |
+| 0x328|   2| Profile 1 Macro 4 Entry 17 Hold Interval          |
+| 0x32A|   2| Profile 1 Macro 4 Entry 18 Hold Interval          |
+| 0x32C|   2| Profile 1 Macro 4 Entry 1 Button Input            |
+| 0x32E|   2| Profile 1 Macro 4 Entry 2 Button Input            |
+| 0x330|   2| Profile 1 Macro 4 Entry 3 Button Input            |
+| 0x332|   2| Profile 1 Macro 4 Entry 4 Button Input            |
+| 0x334|   2| Profile 1 Macro 4 Entry 5 Button Input            |
+| 0x336|   2| Profile 1 Macro 4 Entry 6 Button Input            |
+| 0x338|   2| Profile 1 Macro 4 Entry 7 Button Input            |
+| 0x33A|   2| Profile 1 Macro 4 Entry 8 Button Input            |
+| 0x33C|   2| Profile 1 Macro 4 Entry 9 Button Input            |
+| 0x33E|   2| Profile 1 Macro 4 Entry 10 Button Input           |
+| 0x340|   2| Profile 1 Macro 4 Entry 11 Button Input           |
+| 0x342|   2| Profile 1 Macro 4 Entry 12 Button Input           |
+| 0x344|   2| Profile 1 Macro 4 Entry 13 Button Input           |
+| 0x346|   2| Profile 1 Macro 4 Entry 14 Button Input           |
+| 0x348|   2| Profile 1 Macro 4 Entry 15 Button Input           |
+| 0x34A|   2| Profile 1 Macro 4 Entry 16 Button Input           |
+| 0x34C|   2| Profile 1 Macro 4 Entry 17 Button Input           |
+| 0x34E|   2| Profile 1 Macro 4 Entry 18 Button Input           |
+| 0x350|   1| Profile 1 Macro 4 Entry 1 Digital Joystick Input  |
+| 0x351|   1| Profile 1 Macro 4 Entry 2 Digital Joystick Input  |
+| 0x352|   1| Profile 1 Macro 4 Entry 3 Digital Joystick Input  |
+| 0x353|   1| Profile 1 Macro 4 Entry 4 Digital Joystick Input  |
+| 0x354|   1| Profile 1 Macro 4 Entry 5 Digital Joystick Input  |
+| 0x355|   1| Profile 1 Macro 4 Entry 6 Digital Joystick Input  |
+| 0x356|   1| Profile 1 Macro 4 Entry 7 Digital Joystick Input  |
+| 0x357|   1| Profile 1 Macro 4 Entry 8 Digital Joystick Input  |
+| 0x358|   1| Profile 1 Macro 4 Entry 9 Digital Joystick Input  |
+| 0x359|   1| Profile 1 Macro 4 Entry 10 Digital Joystick Input |
+| 0x35A|   1| Profile 1 Macro 4 Entry 11 Digital Joystick Input |
+| 0x35B|   1| Profile 1 Macro 4 Entry 12 Digital Joystick Input |
+| 0x35C|   1| Profile 1 Macro 4 Entry 13 Digital Joystick Input |
+| 0x35D|   1| Profile 1 Macro 4 Entry 14 Digital Joystick Input |
+| 0x35E|   1| Profile 1 Macro 4 Entry 15 Digital Joystick Input |
+| 0x35F|   1| Profile 1 Macro 4 Entry 16 Digital Joystick Input |
+| 0x360|   1| Profile 1 Macro 4 Entry 17 Digital Joystick Input |
+| 0x361|   1| Profile 1 Macro 4 Entry 18 Digital Joystick Input |
+| 0x362|   1| Profile 1 Macro 4 Entry Total Count               |
+| 0x364|   4| Profile 2 Macro Enable Flag                       |
+| 0x368|   1| Profile 2 Macro Total Count                       |
+| 0x36C|   4| Profile 2 Macro 1 Button Assignment               |
+| 0x370|   2| Profile 2 Macro 1 Entry 1 Hold Interval           |
+| 0x372|   2| Profile 2 Macro 1 Entry 2 Hold Interval           |
+| 0x374|   2| Profile 2 Macro 1 Entry 3 Hold Interval           |
+| 0x376|   2| Profile 2 Macro 1 Entry 4 Hold Interval           |
+| 0x378|   2| Profile 2 Macro 1 Entry 5 Hold Interval           |
+| 0x37A|   2| Profile 2 Macro 1 Entry 6 Hold Interval           |
+| 0x37C|   2| Profile 2 Macro 1 Entry 7 Hold Interval           |
+| 0x37E|   2| Profile 2 Macro 1 Entry 8 Hold Interval           |
+| 0x380|   2| Profile 2 Macro 1 Entry 9 Hold Interval           |
+| 0x382|   2| Profile 2 Macro 1 Entry 10 Hold Interval          |
+| 0x384|   2| Profile 2 Macro 1 Entry 11 Hold Interval          |
+| 0x386|   2| Profile 2 Macro 1 Entry 12 Hold Interval          |
+| 0x388|   2| Profile 2 Macro 1 Entry 13 Hold Interval          |
+| 0x38A|   2| Profile 2 Macro 1 Entry 14 Hold Interval          |
+| 0x38C|   2| Profile 2 Macro 1 Entry 15 Hold Interval          |
+| 0x38E|   2| Profile 2 Macro 1 Entry 16 Hold Interval          |
+| 0x390|   2| Profile 2 Macro 1 Entry 17 Hold Interval          |
+| 0x392|   2| Profile 2 Macro 1 Entry 18 Hold Interval          |
+| 0x394|   2| Profile 2 Macro 1 Entry 1 Button Input            |
+| 0x396|   2| Profile 2 Macro 1 Entry 2 Button Input            |
+| 0x398|   2| Profile 2 Macro 1 Entry 3 Button Input            |
+| 0x39A|   2| Profile 2 Macro 1 Entry 4 Button Input            |
+| 0x39C|   2| Profile 2 Macro 1 Entry 5 Button Input            |
+| 0x39E|   2| Profile 2 Macro 1 Entry 6 Button Input            |
+| 0x3A0|   2| Profile 2 Macro 1 Entry 7 Button Input            |
+| 0x3A2|   2| Profile 2 Macro 1 Entry 8 Button Input            |
+| 0x3A4|   2| Profile 2 Macro 1 Entry 9 Button Input            |
+| 0x3A6|   2| Profile 2 Macro 1 Entry 10 Button Input           |
+| 0x3A8|   2| Profile 2 Macro 1 Entry 11 Button Input           |
+| 0x3AA|   2| Profile 2 Macro 1 Entry 12 Button Input           |
+| 0x3AC|   2| Profile 2 Macro 1 Entry 13 Button Input           |
+| 0x3AE|   2| Profile 2 Macro 1 Entry 14 Button Input           |
+| 0x3B0|   2| Profile 2 Macro 1 Entry 15 Button Input           |
+| 0x3B2|   2| Profile 2 Macro 1 Entry 16 Button Input           |
+| 0x3B4|   2| Profile 2 Macro 1 Entry 17 Button Input           |
+| 0x3B6|   2| Profile 2 Macro 1 Entry 18 Button Input           |
+| 0x3B8|   1| Profile 2 Macro 1 Entry 1 Digital Joystick Input  |
+| 0x3B9|   1| Profile 2 Macro 1 Entry 2 Digital Joystick Input  |
+| 0x3BA|   1| Profile 2 Macro 1 Entry 3 Digital Joystick Input  |
+| 0x3BB|   1| Profile 2 Macro 1 Entry 4 Digital Joystick Input  |
+| 0x3BC|   1| Profile 2 Macro 1 Entry 5 Digital Joystick Input  |
+| 0x3BD|   1| Profile 2 Macro 1 Entry 6 Digital Joystick Input  |
+| 0x3BE|   1| Profile 2 Macro 1 Entry 7 Digital Joystick Input  |
+| 0x3BF|   1| Profile 2 Macro 1 Entry 8 Digital Joystick Input  |
+| 0x3C0|   1| Profile 2 Macro 1 Entry 9 Digital Joystick Input  |
+| 0x3C1|   1| Profile 2 Macro 1 Entry 10 Digital Joystick Input |
+| 0x3C2|   1| Profile 2 Macro 1 Entry 11 Digital Joystick Input |
+| 0x3C3|   1| Profile 2 Macro 1 Entry 12 Digital Joystick Input |
+| 0x3C4|   1| Profile 2 Macro 1 Entry 13 Digital Joystick Input |
+| 0x3C5|   1| Profile 2 Macro 1 Entry 14 Digital Joystick Input |
+| 0x3C6|   1| Profile 2 Macro 1 Entry 15 Digital Joystick Input |
+| 0x3C7|   1| Profile 2 Macro 1 Entry 16 Digital Joystick Input |
+| 0x3C8|   1| Profile 2 Macro 1 Entry 17 Digital Joystick Input |
+| 0x3C9|   1| Profile 2 Macro 1 Entry 18 Digital Joystick Input |
+| 0x3CA|   1| Profile 2 Macro 1 Entry Total Count               |
+| 0x3CC|   4| Profile 2 Macro 2 Button Assignment               | 
+| 0x3D0|   2| Profile 2 Macro 2 Entry 1 Hold Interval           |
+| 0x3D2|   2| Profile 2 Macro 2 Entry 2 Hold Interval           |
+| 0x3D4|   2| Profile 2 Macro 2 Entry 3 Hold Interval           |
+| 0x3D6|   2| Profile 2 Macro 2 Entry 4 Hold Interval           |
+| 0x3D8|   2| Profile 2 Macro 2 Entry 5 Hold Interval           |
+| 0x3DA|   2| Profile 2 Macro 2 Entry 6 Hold Interval           |
+| 0x3DC|   2| Profile 2 Macro 2 Entry 7 Hold Interval           |
+| 0x3DE|   2| Profile 2 Macro 2 Entry 8 Hold Interval           |
+| 0x3E0|   2| Profile 2 Macro 2 Entry 9 Hold Interval           |
+| 0x3E2|   2| Profile 2 Macro 2 Entry 10 Hold Interval          |
+| 0x3E4|   2| Profile 2 Macro 2 Entry 11 Hold Interval          |
+| 0x3E6|   2| Profile 2 Macro 2 Entry 12 Hold Interval          |
+| 0x3E8|   2| Profile 2 Macro 2 Entry 13 Hold Interval          |
+| 0x3EA|   2| Profile 2 Macro 2 Entry 14 Hold Interval          |
+| 0x3EC|   2| Profile 2 Macro 2 Entry 15 Hold Interval          |
+| 0x3EE|   2| Profile 2 Macro 2 Entry 16 Hold Interval          |
+| 0x3F0|   2| Profile 2 Macro 2 Entry 17 Hold Interval          |
+| 0x3F2|   2| Profile 2 Macro 2 Entry 18 Hold Interval          |
+| 0x3F4|   2| Profile 2 Macro 2 Entry 1 Button Input            |
+| 0x3F6|   2| Profile 2 Macro 2 Entry 2 Button Input            |
+| 0x3F8|   2| Profile 2 Macro 2 Entry 3 Button Input            |
+| 0x3FA|   2| Profile 2 Macro 2 Entry 4 Button Input            |
+| 0x3FC|   2| Profile 2 Macro 2 Entry 5 Button Input            |
+| 0x3FE|   2| Profile 2 Macro 2 Entry 6 Button Input            |
+| 0x400|   2| Profile 2 Macro 2 Entry 7 Button Input            |
+| 0x402|   2| Profile 2 Macro 2 Entry 8 Button Input            |
+| 0x404|   2| Profile 2 Macro 2 Entry 9 Button Input            |
+| 0x406|   2| Profile 2 Macro 2 Entry 10 Button Input           |
+| 0x408|   2| Profile 2 Macro 2 Entry 11 Button Input           |
+| 0x40A|   2| Profile 2 Macro 2 Entry 12 Button Input           |
+| 0x40C|   2| Profile 2 Macro 2 Entry 13 Button Input           |
+| 0x40E|   2| Profile 2 Macro 2 Entry 14 Button Input           |
+| 0x3B0|   2| Profile 2 Macro 2 Entry 15 Button Input           |
+| 0x412|   2| Profile 2 Macro 2 Entry 16 Button Input           |
+| 0x414|   2| Profile 2 Macro 2 Entry 17 Button Input           |
+| 0x416|   2| Profile 2 Macro 2 Entry 18 Button Input           |
+| 0x418|   1| Profile 2 Macro 2 Entry 1 Digital Joystick Input  |
+| 0x419|   1| Profile 2 Macro 2 Entry 2 Digital Joystick Input  |
+| 0x41A|   1| Profile 2 Macro 2 Entry 3 Digital Joystick Input  |
+| 0x41B|   1| Profile 2 Macro 2 Entry 4 Digital Joystick Input  |
+| 0x41C|   1| Profile 2 Macro 2 Entry 5 Digital Joystick Input  |
+| 0x41D|   1| Profile 2 Macro 2 Entry 6 Digital Joystick Input  |
+| 0x41E|   1| Profile 2 Macro 2 Entry 7 Digital Joystick Input  |
+| 0x41F|   1| Profile 2 Macro 2 Entry 8 Digital Joystick Input  |
+| 0x420|   1| Profile 2 Macro 2 Entry 9 Digital Joystick Input  |
+| 0x421|   1| Profile 2 Macro 2 Entry 10 Digital Joystick Input |
+| 0x422|   1| Profile 2 Macro 2 Entry 11 Digital Joystick Input |
+| 0x423|   1| Profile 2 Macro 2 Entry 12 Digital Joystick Input |
+| 0x424|   1| Profile 2 Macro 2 Entry 13 Digital Joystick Input |
+| 0x425|   1| Profile 2 Macro 2 Entry 14 Digital Joystick Input |
+| 0x426|   1| Profile 2 Macro 2 Entry 15 Digital Joystick Input |
+| 0x427|   1| Profile 2 Macro 2 Entry 16 Digital Joystick Input |
+| 0x428|   1| Profile 2 Macro 2 Entry 17 Digital Joystick Input |
+| 0x429|   1| Profile 2 Macro 2 Entry 18 Digital Joystick Input |
+| 0x42A|   1| Profile 2 Macro 2 Entry Total Count               |
+| 0x42C|   4| Profile 2 Macro 3 Button Assignment               | 
+| 0x430|   2| Profile 2 Macro 3 Entry 1 Hold Interval           |
+| 0x432|   2| Profile 2 Macro 3 Entry 2 Hold Interval           |
+| 0x434|   2| Profile 2 Macro 3 Entry 3 Hold Interval           |
+| 0x436|   2| Profile 2 Macro 3 Entry 4 Hold Interval           |
+| 0x438|   2| Profile 2 Macro 3 Entry 5 Hold Interval           |
+| 0x43A|   2| Profile 2 Macro 3 Entry 6 Hold Interval           |
+| 0x43C|   2| Profile 2 Macro 3 Entry 7 Hold Interval           |
+| 0x43E|   2| Profile 2 Macro 3 Entry 8 Hold Interval           |
+| 0x440|   2| Profile 2 Macro 3 Entry 9 Hold Interval           |
+| 0x442|   2| Profile 2 Macro 3 Entry 10 Hold Interval          |
+| 0x444|   2| Profile 2 Macro 3 Entry 11 Hold Interval          |
+| 0x446|   2| Profile 2 Macro 3 Entry 12 Hold Interval          |
+| 0x448|   2| Profile 2 Macro 3 Entry 13 Hold Interval          |
+| 0x44A|   2| Profile 2 Macro 3 Entry 14 Hold Interval          |
+| 0x44C|   2| Profile 2 Macro 3 Entry 15 Hold Interval          |
+| 0x44E|   2| Profile 2 Macro 3 Entry 16 Hold Interval          |
+| 0x450|   2| Profile 2 Macro 3 Entry 17 Hold Interval          |
+| 0x452|   2| Profile 2 Macro 3 Entry 18 Hold Interval          |
+| 0x454|   2| Profile 2 Macro 3 Entry 1 Button Input            |
+| 0x456|   2| Profile 2 Macro 3 Entry 2 Button Input            |
+| 0x458|   2| Profile 2 Macro 3 Entry 3 Button Input            |
+| 0x45A|   2| Profile 2 Macro 3 Entry 4 Button Input            |
+| 0x45C|   2| Profile 2 Macro 3 Entry 5 Button Input            |
+| 0x45E|   2| Profile 2 Macro 3 Entry 6 Button Input            |
+| 0x460|   2| Profile 2 Macro 3 Entry 7 Button Input            |
+| 0x462|   2| Profile 2 Macro 3 Entry 8 Button Input            |
+| 0x464|   2| Profile 2 Macro 3 Entry 9 Button Input            |
+| 0x466|   2| Profile 2 Macro 3 Entry 10 Button Input           |
+| 0x468|   2| Profile 2 Macro 3 Entry 11 Button Input           |
+| 0x46A|   2| Profile 2 Macro 3 Entry 12 Button Input           |
+| 0x46C|   2| Profile 2 Macro 3 Entry 13 Button Input           |
+| 0x46E|   2| Profile 2 Macro 3 Entry 14 Button Input           |
+| 0x470|   2| Profile 2 Macro 3 Entry 15 Button Input           |
+| 0x472|   2| Profile 2 Macro 3 Entry 16 Button Input           |
+| 0x474|   2| Profile 2 Macro 3 Entry 17 Button Input           |
+| 0x476|   2| Profile 2 Macro 3 Entry 18 Button Input           |
+| 0x478|   1| Profile 2 Macro 3 Entry 1 Digital Joystick Input  |
+| 0x479|   1| Profile 2 Macro 3 Entry 2 Digital Joystick Input  |
+| 0x47A|   1| Profile 2 Macro 3 Entry 3 Digital Joystick Input  |
+| 0x47B|   1| Profile 2 Macro 3 Entry 4 Digital Joystick Input  |
+| 0x47C|   1| Profile 2 Macro 3 Entry 5 Digital Joystick Input  |
+| 0x47D|   1| Profile 2 Macro 3 Entry 6 Digital Joystick Input  |
+| 0x47E|   1| Profile 2 Macro 3 Entry 7 Digital Joystick Input  |
+| 0x47F|   1| Profile 2 Macro 3 Entry 8 Digital Joystick Input  |
+| 0x480|   1| Profile 2 Macro 3 Entry 9 Digital Joystick Input  |
+| 0x481|   1| Profile 2 Macro 3 Entry 10 Digital Joystick Input |
+| 0x482|   1| Profile 2 Macro 3 Entry 11 Digital Joystick Input |
+| 0x483|   1| Profile 2 Macro 3 Entry 12 Digital Joystick Input |
+| 0x484|   1| Profile 2 Macro 3 Entry 13 Digital Joystick Input |
+| 0x485|   1| Profile 2 Macro 3 Entry 14 Digital Joystick Input |
+| 0x486|   1| Profile 2 Macro 3 Entry 15 Digital Joystick Input |
+| 0x487|   1| Profile 2 Macro 3 Entry 16 Digital Joystick Input |
+| 0x488|   1| Profile 2 Macro 3 Entry 17 Digital Joystick Input |
+| 0x489|   1| Profile 2 Macro 3 Entry 18 Digital Joystick Input |
+| 0x48A|   1| Profile 2 Macro 3 Entry Total Count               |
+| 0x48C|   4| Profile 2 Macro 4 Button Assignment               | 
+| 0x490|   2| Profile 2 Macro 4 Entry 1 Hold Interval           |
+| 0x492|   2| Profile 2 Macro 4 Entry 2 Hold Interval           |
+| 0x494|   2| Profile 2 Macro 4 Entry 3 Hold Interval           |
+| 0x496|   2| Profile 2 Macro 4 Entry 4 Hold Interval           |
+| 0x498|   2| Profile 2 Macro 4 Entry 5 Hold Interval           |
+| 0x49A|   2| Profile 2 Macro 4 Entry 6 Hold Interval           |
+| 0x49C|   2| Profile 2 Macro 4 Entry 7 Hold Interval           |
+| 0x49E|   2| Profile 2 Macro 4 Entry 8 Hold Interval           |
+| 0x4A0|   2| Profile 2 Macro 4 Entry 9 Hold Interval           |
+| 0x4A2|   2| Profile 2 Macro 4 Entry 10 Hold Interval          |
+| 0x4A4|   2| Profile 2 Macro 4 Entry 11 Hold Interval          |
+| 0x4A6|   2| Profile 2 Macro 4 Entry 12 Hold Interval          |
+| 0x4A8|   2| Profile 2 Macro 4 Entry 13 Hold Interval          |
+| 0x4AA|   2| Profile 2 Macro 4 Entry 14 Hold Interval          |
+| 0x4AC|   2| Profile 2 Macro 4 Entry 15 Hold Interval          |
+| 0x4AE|   2| Profile 2 Macro 4 Entry 16 Hold Interval          |
+| 0x4B0|   2| Profile 2 Macro 4 Entry 17 Hold Interval          |
+| 0x4B2|   2| Profile 2 Macro 4 Entry 18 Hold Interval          |
+| 0x4B4|   2| Profile 2 Macro 4 Entry 1 Button Input            |
+| 0x4B6|   2| Profile 2 Macro 4 Entry 2 Button Input            |
+| 0x4B8|   2| Profile 2 Macro 4 Entry 3 Button Input            |
+| 0x4BA|   2| Profile 2 Macro 4 Entry 4 Button Input            |
+| 0x4BC|   2| Profile 2 Macro 4 Entry 5 Button Input            |
+| 0x4BE|   2| Profile 2 Macro 4 Entry 6 Button Input            |
+| 0x4C0|   2| Profile 2 Macro 4 Entry 7 Button Input            |
+| 0x4C2|   2| Profile 2 Macro 4 Entry 8 Button Input            |
+| 0x4C4|   2| Profile 2 Macro 4 Entry 9 Button Input            |
+| 0x4C6|   2| Profile 2 Macro 4 Entry 10 Button Input           |
+| 0x4C8|   2| Profile 2 Macro 4 Entry 11 Button Input           |
+| 0x4CA|   2| Profile 2 Macro 4 Entry 12 Button Input           |
+| 0x4CC|   2| Profile 2 Macro 4 Entry 13 Button Input           |
+| 0x4CE|   2| Profile 2 Macro 4 Entry 14 Button Input           |
+| 0x4D0|   2| Profile 2 Macro 4 Entry 15 Button Input           |
+| 0x4D2|   2| Profile 2 Macro 4 Entry 16 Button Input           |
+| 0x4D4|   2| Profile 2 Macro 4 Entry 17 Button Input           |
+| 0x4D6|   2| Profile 2 Macro 4 Entry 18 Button Input           |
+| 0x4D8|   1| Profile 2 Macro 4 Entry 1 Digital Joystick Input  |
+| 0x4D9|   1| Profile 2 Macro 4 Entry 2 Digital Joystick Input  |
+| 0x4DA|   1| Profile 2 Macro 4 Entry 3 Digital Joystick Input  |
+| 0x4DB|   1| Profile 2 Macro 4 Entry 4 Digital Joystick Input  |
+| 0x4DC|   1| Profile 2 Macro 4 Entry 5 Digital Joystick Input  |
+| 0x4DD|   1| Profile 2 Macro 4 Entry 6 Digital Joystick Input  |
+| 0x4DE|   1| Profile 2 Macro 4 Entry 7 Digital Joystick Input  |
+| 0x4DF|   1| Profile 2 Macro 4 Entry 8 Digital Joystick Input  |
+| 0x4E0|   1| Profile 2 Macro 4 Entry 9 Digital Joystick Input  |
+| 0x4E1|   1| Profile 2 Macro 4 Entry 10 Digital Joystick Input |
+| 0x4E2|   1| Profile 2 Macro 4 Entry 11 Digital Joystick Input |
+| 0x4E3|   1| Profile 2 Macro 4 Entry 12 Digital Joystick Input |
+| 0x4E4|   1| Profile 2 Macro 4 Entry 13 Digital Joystick Input |
+| 0x4E5|   1| Profile 2 Macro 4 Entry 14 Digital Joystick Input |
+| 0x4E6|   1| Profile 2 Macro 4 Entry 15 Digital Joystick Input |
+| 0x4E7|   1| Profile 2 Macro 4 Entry 16 Digital Joystick Input |
+| 0x4E8|   1| Profile 2 Macro 4 Entry 17 Digital Joystick Input |
+| 0x4E9|   1| Profile 2 Macro 4 Entry 18 Digital Joystick Input |
+| 0x4EA|   1| Profile 2 Macro 4 Entry Total Count               |
+| 0x4EC|   4| Profile 3 Macro Enable Flag                       |
+| 0x4F0|   1| Profile 3 Macro Total Count                       |
+| 0x4F4|   4| Profile 3 Macro 1 Button Assignment               |
+| 0x4F8|   2| Profile 3 Macro 1 Entry 1 Hold Interval           |
+| 0x4FA|   2| Profile 3 Macro 1 Entry 2 Hold Interval           |
+| 0x4FC|   2| Profile 3 Macro 1 Entry 3 Hold Interval           |
+| 0x4FE|   2| Profile 3 Macro 1 Entry 4 Hold Interval           |
+| 0x500|   2| Profile 3 Macro 1 Entry 5 Hold Interval           |
+| 0x502|   2| Profile 3 Macro 1 Entry 6 Hold Interval           |
+| 0x504|   2| Profile 3 Macro 1 Entry 7 Hold Interval           |
+| 0x506|   2| Profile 3 Macro 1 Entry 8 Hold Interval           |
+| 0x508|   2| Profile 3 Macro 1 Entry 9 Hold Interval           |
+| 0x50A|   2| Profile 3 Macro 1 Entry 10 Hold Interval          |
+| 0x50C|   2| Profile 3 Macro 1 Entry 11 Hold Interval          |
+| 0x50E|   2| Profile 3 Macro 1 Entry 12 Hold Interval          |
+| 0x200|   2| Profile 3 Macro 1 Entry 13 Hold Interval          |
+| 0x512|   2| Profile 3 Macro 1 Entry 14 Hold Interval          |
+| 0x514|   2| Profile 3 Macro 1 Entry 15 Hold Interval          |
+| 0x516|   2| Profile 3 Macro 1 Entry 16 Hold Interval          |
+| 0x518|   2| Profile 3 Macro 1 Entry 17 Hold Interval          |
+| 0x51A|   2| Profile 3 Macro 1 Entry 18 Hold Interval          |
+| 0x51C|   2| Profile 3 Macro 1 Entry 1 Button Input            |
+| 0x51E|   2| Profile 3 Macro 1 Entry 2 Button Input            |
+| 0x520|   2| Profile 3 Macro 1 Entry 3 Button Input            |
+| 0x522|   2| Profile 3 Macro 1 Entry 4 Button Input            |
+| 0x524|   2| Profile 3 Macro 1 Entry 5 Button Input            |
+| 0x526|   2| Profile 3 Macro 1 Entry 6 Button Input            |
+| 0x528|   2| Profile 3 Macro 1 Entry 7 Button Input            |
+| 0x52A|   2| Profile 3 Macro 1 Entry 8 Button Input            |
+| 0x52C|   2| Profile 3 Macro 1 Entry 9 Button Input            |
+| 0x52E|   2| Profile 3 Macro 1 Entry 10 Button Input           |
+| 0x530|   2| Profile 3 Macro 1 Entry 11 Button Input           |
+| 0x532|   2| Profile 3 Macro 1 Entry 12 Button Input           |
+| 0x534|   2| Profile 3 Macro 1 Entry 13 Button Input           |
+| 0x536|   2| Profile 3 Macro 1 Entry 14 Button Input           |
+| 0x538|   2| Profile 3 Macro 1 Entry 15 Button Input           |
+| 0x53A|   2| Profile 3 Macro 1 Entry 16 Button Input           |
+| 0x53C|   2| Profile 3 Macro 1 Entry 17 Button Input           |
+| 0x53E|   2| Profile 3 Macro 1 Entry 18 Button Input           |
+| 0x540|   1| Profile 3 Macro 1 Entry 1 Digital Joystick Input  |
+| 0x541|   1| Profile 3 Macro 1 Entry 2 Digital Joystick Input  |
+| 0x542|   1| Profile 3 Macro 1 Entry 3 Digital Joystick Input  |
+| 0x543|   1| Profile 3 Macro 1 Entry 4 Digital Joystick Input  |
+| 0x544|   1| Profile 3 Macro 1 Entry 5 Digital Joystick Input  |
+| 0x545|   1| Profile 3 Macro 1 Entry 6 Digital Joystick Input  |
+| 0x546|   1| Profile 3 Macro 1 Entry 7 Digital Joystick Input  |
+| 0x547|   1| Profile 3 Macro 1 Entry 8 Digital Joystick Input  |
+| 0x548|   1| Profile 3 Macro 1 Entry 9 Digital Joystick Input  |
+| 0x549|   1| Profile 3 Macro 1 Entry 10 Digital Joystick Input |
+| 0x54A|   1| Profile 3 Macro 1 Entry 11 Digital Joystick Input |
+| 0x54B|   1| Profile 3 Macro 1 Entry 12 Digital Joystick Input |
+| 0x54C|   1| Profile 3 Macro 1 Entry 13 Digital Joystick Input |
+| 0x54D|   1| Profile 3 Macro 1 Entry 14 Digital Joystick Input |
+| 0x54E|   1| Profile 3 Macro 1 Entry 15 Digital Joystick Input |
+| 0x54F|   1| Profile 3 Macro 1 Entry 16 Digital Joystick Input |
+| 0x550|   1| Profile 3 Macro 1 Entry 17 Digital Joystick Input |
+| 0x551|   1| Profile 3 Macro 1 Entry 18 Digital Joystick Input |
+| 0x552|   1| Profile 3 Macro 1 Entry Total Count               |
+| 0x554|   4| Profile 3 Macro 2 Button Assignment               |
+| 0x558|   2| Profile 3 Macro 2 Entry 1 Hold Interval           |
+| 0x55A|   2| Profile 3 Macro 2 Entry 2 Hold Interval           |
+| 0x55C|   2| Profile 3 Macro 2 Entry 3 Hold Interval           |
+| 0x55E|   2| Profile 3 Macro 2 Entry 4 Hold Interval           |
+| 0x560|   2| Profile 3 Macro 2 Entry 5 Hold Interval           |
+| 0x562|   2| Profile 3 Macro 2 Entry 6 Hold Interval           |
+| 0x564|   2| Profile 3 Macro 2 Entry 7 Hold Interval           |
+| 0x566|   2| Profile 3 Macro 2 Entry 8 Hold Interval           |
+| 0x568|   2| Profile 3 Macro 2 Entry 9 Hold Interval           |
+| 0x56A|   2| Profile 3 Macro 2 Entry 10 Hold Interval          |
+| 0x56C|   2| Profile 3 Macro 2 Entry 11 Hold Interval          |
+| 0x56E|   2| Profile 3 Macro 2 Entry 12 Hold Interval          |
+| 0x570|   2| Profile 3 Macro 2 Entry 13 Hold Interval          |
+| 0x572|   2| Profile 3 Macro 2 Entry 14 Hold Interval          |
+| 0x574|   2| Profile 3 Macro 2 Entry 15 Hold Interval          |
+| 0x576|   2| Profile 3 Macro 2 Entry 16 Hold Interval          |
+| 0x578|   2| Profile 3 Macro 2 Entry 17 Hold Interval          |
+| 0x57A|   2| Profile 3 Macro 2 Entry 18 Hold Interval          |
+| 0x57C|   2| Profile 3 Macro 2 Entry 1 Button Input            |
+| 0x57E|   2| Profile 3 Macro 2 Entry 2 Button Input            |
+| 0x580|   2| Profile 3 Macro 2 Entry 3 Button Input            |
+| 0x582|   2| Profile 3 Macro 2 Entry 4 Button Input            |
+| 0x584|   2| Profile 3 Macro 2 Entry 5 Button Input            |
+| 0x586|   2| Profile 3 Macro 2 Entry 6 Button Input            |
+| 0x588|   2| Profile 3 Macro 2 Entry 7 Button Input            |
+| 0x58A|   2| Profile 3 Macro 2 Entry 8 Button Input            |
+| 0x58C|   2| Profile 3 Macro 2 Entry 9 Button Input            |
+| 0x58E|   2| Profile 3 Macro 2 Entry 10 Button Input           |
+| 0x590|   2| Profile 3 Macro 2 Entry 11 Button Input           |
+| 0x592|   2| Profile 3 Macro 2 Entry 12 Button Input           |
+| 0x594|   2| Profile 3 Macro 2 Entry 13 Button Input           |
+| 0x596|   2| Profile 3 Macro 2 Entry 14 Button Input           |
+| 0x598|   2| Profile 3 Macro 2 Entry 15 Button Input           |
+| 0x59A|   2| Profile 3 Macro 2 Entry 16 Button Input           |
+| 0x59C|   2| Profile 3 Macro 2 Entry 17 Button Input           |
+| 0x59E|   2| Profile 3 Macro 2 Entry 18 Button Input           |
+| 0x5A0|   1| Profile 3 Macro 2 Entry 1 Digital Joystick Input  |
+| 0x5A1|   1| Profile 3 Macro 2 Entry 2 Digital Joystick Input  |
+| 0x5A2|   1| Profile 3 Macro 2 Entry 3 Digital Joystick Input  |
+| 0x5A3|   1| Profile 3 Macro 2 Entry 4 Digital Joystick Input  |
+| 0x5A4|   1| Profile 3 Macro 2 Entry 5 Digital Joystick Input  |
+| 0x5A5|   1| Profile 3 Macro 2 Entry 6 Digital Joystick Input  |
+| 0x5A6|   1| Profile 3 Macro 2 Entry 7 Digital Joystick Input  |
+| 0x5A7|   1| Profile 3 Macro 2 Entry 8 Digital Joystick Input  |
+| 0x5A8|   1| Profile 3 Macro 2 Entry 9 Digital Joystick Input  |
+| 0x5A9|   1| Profile 3 Macro 2 Entry 10 Digital Joystick Input |
+| 0x5AA|   1| Profile 3 Macro 2 Entry 11 Digital Joystick Input |
+| 0x5AB|   1| Profile 3 Macro 2 Entry 12 Digital Joystick Input |
+| 0x5AC|   1| Profile 3 Macro 2 Entry 13 Digital Joystick Input |
+| 0x5AD|   1| Profile 3 Macro 2 Entry 14 Digital Joystick Input |
+| 0x5AE|   1| Profile 3 Macro 2 Entry 15 Digital Joystick Input |
+| 0x5AF|   1| Profile 3 Macro 2 Entry 16 Digital Joystick Input |
+| 0x5B0|   1| Profile 3 Macro 2 Entry 17 Digital Joystick Input |
+| 0x5B1|   1| Profile 3 Macro 2 Entry 18 Digital Joystick Input |
+| 0x5B2|   1| Profile 3 Macro 2 Entry Total Count               |
+| 0x5B4|   4| Profile 3 Macro 3 Button Assignment               |
+| 0x5B8|   2| Profile 3 Macro 3 Entry 1 Hold Interval           |
+| 0x5BA|   2| Profile 3 Macro 3 Entry 2 Hold Interval           |
+| 0x5BC|   2| Profile 3 Macro 3 Entry 3 Hold Interval           |
+| 0x5BE|   2| Profile 3 Macro 3 Entry 4 Hold Interval           |
+| 0x5C0|   2| Profile 3 Macro 3 Entry 5 Hold Interval           |
+| 0x5C2|   2| Profile 3 Macro 3 Entry 6 Hold Interval           |
+| 0x5C4|   2| Profile 3 Macro 3 Entry 7 Hold Interval           |
+| 0x5C6|   2| Profile 3 Macro 3 Entry 8 Hold Interval           |
+| 0x5C8|   2| Profile 3 Macro 3 Entry 9 Hold Interval           |
+| 0x5CA|   2| Profile 3 Macro 3 Entry 10 Hold Interval          |
+| 0x5CC|   2| Profile 3 Macro 3 Entry 11 Hold Interval          |
+| 0x5CE|   2| Profile 3 Macro 3 Entry 12 Hold Interval          |
+| 0x5D0|   2| Profile 3 Macro 3 Entry 13 Hold Interval          |
+| 0x5D2|   2| Profile 3 Macro 3 Entry 14 Hold Interval          |
+| 0x5D4|   2| Profile 3 Macro 3 Entry 15 Hold Interval          |
+| 0x5D6|   2| Profile 3 Macro 3 Entry 16 Hold Interval          |
+| 0x5D8|   2| Profile 3 Macro 3 Entry 17 Hold Interval          |
+| 0x5DA|   2| Profile 3 Macro 3 Entry 18 Hold Interval          |
+| 0x5DC|   2| Profile 3 Macro 3 Entry 1 Button Input            |
+| 0x5DE|   2| Profile 3 Macro 3 Entry 2 Button Input            |
+| 0x5E0|   2| Profile 3 Macro 3 Entry 3 Button Input            |
+| 0x5E2|   2| Profile 3 Macro 3 Entry 4 Button Input            |
+| 0x5E4|   2| Profile 3 Macro 3 Entry 5 Button Input            |
+| 0x5E6|   2| Profile 3 Macro 3 Entry 6 Button Input            |
+| 0x5E8|   2| Profile 3 Macro 3 Entry 7 Button Input            |
+| 0x5EA|   2| Profile 3 Macro 3 Entry 8 Button Input            |
+| 0x5EC|   2| Profile 3 Macro 3 Entry 9 Button Input            |
+| 0x5EE|   2| Profile 3 Macro 3 Entry 10 Button Input           |
+| 0x5F0|   2| Profile 3 Macro 3 Entry 11 Button Input           |
+| 0x5F2|   2| Profile 3 Macro 3 Entry 12 Button Input           |
+| 0x5F4|   2| Profile 3 Macro 3 Entry 13 Button Input           |
+| 0x5F6|   2| Profile 3 Macro 3 Entry 14 Button Input           |
+| 0x5F8|   2| Profile 3 Macro 3 Entry 15 Button Input           |
+| 0x5FA|   2| Profile 3 Macro 3 Entry 16 Button Input           |
+| 0x5FC|   2| Profile 3 Macro 3 Entry 17 Button Input           |
+| 0x5FE|   2| Profile 3 Macro 3 Entry 18 Button Input           |
+| 0x600|   1| Profile 3 Macro 3 Entry 1 Digital Joystick Input  |
+| 0x601|   1| Profile 3 Macro 3 Entry 2 Digital Joystick Input  |
+| 0x602|   1| Profile 3 Macro 3 Entry 3 Digital Joystick Input  |
+| 0x603|   1| Profile 3 Macro 3 Entry 4 Digital Joystick Input  |
+| 0x604|   1| Profile 3 Macro 3 Entry 5 Digital Joystick Input  |
+| 0x605|   1| Profile 3 Macro 3 Entry 6 Digital Joystick Input  |
+| 0x606|   1| Profile 3 Macro 3 Entry 7 Digital Joystick Input  |
+| 0x607|   1| Profile 3 Macro 3 Entry 8 Digital Joystick Input  |
+| 0x608|   1| Profile 3 Macro 3 Entry 9 Digital Joystick Input  |
+| 0x609|   1| Profile 3 Macro 3 Entry 10 Digital Joystick Input |
+| 0x60A|   1| Profile 3 Macro 3 Entry 11 Digital Joystick Input |
+| 0x60B|   1| Profile 3 Macro 3 Entry 12 Digital Joystick Input |
+| 0x60C|   1| Profile 3 Macro 3 Entry 13 Digital Joystick Input |
+| 0x60D|   1| Profile 3 Macro 3 Entry 14 Digital Joystick Input |
+| 0x60E|   1| Profile 3 Macro 3 Entry 15 Digital Joystick Input |
+| 0x60F|   1| Profile 3 Macro 3 Entry 16 Digital Joystick Input |
+| 0x610|   1| Profile 3 Macro 3 Entry 17 Digital Joystick Input |
+| 0x611|   1| Profile 3 Macro 3 Entry 18 Digital Joystick Input |
+| 0x612|   1| Profile 3 Macro 3 Entry Total Count               |
+| 0x614|   4| Profile 3 Macro 4 Button Assignment               |
+| 0x618|   2| Profile 3 Macro 4 Entry 1 Hold Interval           |
+| 0x61A|   2| Profile 3 Macro 4 Entry 2 Hold Interval           |
+| 0x61C|   2| Profile 3 Macro 4 Entry 3 Hold Interval           |
+| 0x61E|   2| Profile 3 Macro 4 Entry 4 Hold Interval           |
+| 0x620|   2| Profile 3 Macro 4 Entry 5 Hold Interval           |
+| 0x622|   2| Profile 3 Macro 4 Entry 6 Hold Interval           |
+| 0x624|   2| Profile 3 Macro 4 Entry 7 Hold Interval           |
+| 0x626|   2| Profile 3 Macro 4 Entry 8 Hold Interval           |
+| 0x628|   2| Profile 3 Macro 4 Entry 9 Hold Interval           |
+| 0x62A|   2| Profile 3 Macro 4 Entry 10 Hold Interval          |
+| 0x62C|   2| Profile 3 Macro 4 Entry 11 Hold Interval          |
+| 0x62E|   2| Profile 3 Macro 4 Entry 12 Hold Interval          |
+| 0x630|   2| Profile 3 Macro 4 Entry 13 Hold Interval          |
+| 0x632|   2| Profile 3 Macro 4 Entry 14 Hold Interval          |
+| 0x634|   2| Profile 3 Macro 4 Entry 15 Hold Interval          |
+| 0x636|   2| Profile 3 Macro 4 Entry 16 Hold Interval          |
+| 0x638|   2| Profile 3 Macro 4 Entry 17 Hold Interval          |
+| 0x63A|   2| Profile 3 Macro 4 Entry 18 Hold Interval          |
+| 0x63C|   2| Profile 3 Macro 4 Entry 1 Button Input            |
+| 0x63E|   2| Profile 3 Macro 4 Entry 2 Button Input            |
+| 0x640|   2| Profile 3 Macro 4 Entry 3 Button Input            |
+| 0x642|   2| Profile 3 Macro 4 Entry 4 Button Input            |
+| 0x644|   2| Profile 3 Macro 4 Entry 5 Button Input            |
+| 0x646|   2| Profile 3 Macro 4 Entry 6 Button Input            |
+| 0x648|   2| Profile 3 Macro 4 Entry 7 Button Input            |
+| 0x64A|   2| Profile 3 Macro 4 Entry 8 Button Input            |
+| 0x64C|   2| Profile 3 Macro 4 Entry 9 Button Input            |
+| 0x64E|   2| Profile 3 Macro 4 Entry 10 Button Input           |
+| 0x650|   2| Profile 3 Macro 4 Entry 11 Button Input           |
+| 0x652|   2| Profile 3 Macro 4 Entry 12 Button Input           |
+| 0x654|   2| Profile 3 Macro 4 Entry 13 Button Input           |
+| 0x656|   2| Profile 3 Macro 4 Entry 14 Button Input           |
+| 0x658|   2| Profile 3 Macro 4 Entry 15 Button Input           |
+| 0x65A|   2| Profile 3 Macro 4 Entry 16 Button Input           |
+| 0x65C|   2| Profile 3 Macro 4 Entry 17 Button Input           |
+| 0x65E|   2| Profile 3 Macro 4 Entry 18 Button Input           |
+| 0x660|   1| Profile 3 Macro 4 Entry 1 Digital Joystick Input  |
+| 0x661|   1| Profile 3 Macro 4 Entry 2 Digital Joystick Input  |
+| 0x662|   1| Profile 3 Macro 4 Entry 3 Digital Joystick Input  |
+| 0x663|   1| Profile 3 Macro 4 Entry 4 Digital Joystick Input  |
+| 0x664|   1| Profile 3 Macro 4 Entry 5 Digital Joystick Input  |
+| 0x665|   1| Profile 3 Macro 4 Entry 6 Digital Joystick Input  |
+| 0x666|   1| Profile 3 Macro 4 Entry 7 Digital Joystick Input  |
+| 0x667|   1| Profile 3 Macro 4 Entry 8 Digital Joystick Input  |
+| 0x668|   1| Profile 3 Macro 4 Entry 9 Digital Joystick Input  |
+| 0x669|   1| Profile 3 Macro 4 Entry 10 Digital Joystick Input |
+| 0x66A|   1| Profile 3 Macro 4 Entry 11 Digital Joystick Input |
+| 0x66B|   1| Profile 3 Macro 4 Entry 12 Digital Joystick Input |
+| 0x66C|   1| Profile 3 Macro 4 Entry 13 Digital Joystick Input |
+| 0x66D|   1| Profile 3 Macro 4 Entry 14 Digital Joystick Input |
+| 0x66E|   1| Profile 3 Macro 4 Entry 15 Digital Joystick Input |
+| 0x66F|   1| Profile 3 Macro 4 Entry 16 Digital Joystick Input |
+| 0x670|   1| Profile 3 Macro 4 Entry 17 Digital Joystick Input |
+| 0x671|   1| Profile 3 Macro 4 Entry 18 Digital Joystick Input |
+| 0x672|   1| Profile 3 Macro 4 Entry Total Count               |
 
 
 ## Complete byte map of configuration
@@ -461,7 +1195,7 @@ and should probably be set to `0`.
 
 ```
        0                               1
-       0 1 2 3 4 5 6 7 8 9 A B C D E F 0 1 2 3 4 5 6 7 8 9 A B D C E F
+       0 1 2 3 4 5 6 7 8 9 A B C D E F 0 1 2 3 4 5 6 7 8 9 A B C D E F
 0x00| | flag1 | flag2 | flag3 |  crc  | m | s | filename1
 0x02|  ->                                     | filename2
 0x04|  ->                                     | filename3
