@@ -7,5 +7,12 @@ The version request is six bytes written directly to the HID virtual file, in he
 ## Switch to 8bitdo mode
 The change mode command is six bytes written directly to the HID virtual file, in hex format as `01 66 AA 00 51 01`.  This will cause the controller to reconnect to the host device as an 8bitdo controller, using the same VID and PID as if the controller were in DInput mode when connecting to the host.  In testing with both the SN30 Pro+ (0x6002) and Pro2 (0x6003), sending the command one time causes the controller to switch modes, and the HID virtual file is closed and deleted before having a chance to read from the file.
 
+## Switch back from 8bitdo mode
+In order to have the controller go back into Switch mode without having to disconnect the
+controller, a command can be sent to the controller to switch it back.  The first byte of hex `81` coincides with the input endpoint address, the next byte `5` is the size of the command packet (5 
+bytes), the next byte of `0` appears to suggest main functionality, the next byte of hex `51`
+appears to suggest the change mode command, and the final byte value of `4` appears to suggest that
+the mode be changed to Switch.  The entire command can be seen as `81 05 00 51 04`.
+
 ## Scripts
 The scripts found in this folder can be used to obtain version information as well as to change the controller into 8bitdo mode so that the controller can be managed by an 8bitdo controller manager.  The path to the proper `/dev/hidraw*` must be passed to the script for it to function properly, as example, `./swGetVer.sh /dev/hidraw0`.  Ensure that the `hidraw` file being passed is the correct file, as sending data to a different device may have unpredictable results.  Also, the `hid_nintendo` module may not properly create the `hidraw` file, as 8bitdo controllers in Switch mode has been known not to load properly with this module, and may require either unloading or blacklisting the module in order for the `hidraw` file to be created.  The scripts depend on bash (or compatible shell host) to execute and the `swGetVer.sh` script requires the `hexdump` utility (or compatible alias) be available.
