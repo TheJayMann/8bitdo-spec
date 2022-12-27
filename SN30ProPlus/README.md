@@ -28,7 +28,15 @@ build these requests was allocated and never initialized, and that it simply con
 whenever it was previously allocated.
 
 ## Response packet format
-WIP
+Response packets consist of 18 byte response, followed by up to 46 bytes of data.
+
+The first three bytes of the response appear to be the three single byte values of `2`, `4`, `4`.  The next three bytes
+appear to be arbitrary data.  The next four bytes represent the little endian encoded value of the operation that was
+performed.  This is `1` for writing configuration data, `2` for reading configuration data, and `6` for finalizing
+configuration data.  The next single byte value indicates how much data was processed for the current operation.  A
+single byte of arbitrary data follows.  The next two double byte values are the little endian encoded values of the
+total data size and current data offset of the current operation within the complete operation set.  The final two bytes
+contain arbitrary data.
 
 ## Read configuration
 WIP
