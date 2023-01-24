@@ -406,9 +406,9 @@ values.
 |    12 | B                   |
 |    13 | A                   |
 |    14 | L2                  |
-|    15 | Home                |
+|    15 | R2                  |
 |    16 | Menu                |
-|    17 | R2                  |
+|    17 | Home                |
 |    18 | Bluetooth Connect   |
 |    19 | Unknown             |
 |    20 | Unknown             |
@@ -424,6 +424,9 @@ values.
 |    30 | Unknown             |
 |    31 | Unknown             |
 
+> **Note**
+> While the code intially has R2 as bit 17 and Home as bit 15, under certain conditions these values are swapped. In
+> analysis of some configuration dumps, it appears this swap is in effect for button mappings.
 
 
 |Offset|Size|Description                           |
@@ -1309,3 +1312,7 @@ and should probably be set to `0`.
 0x64| |k3 |k4 |k5 |k6 |k7 |k8 |k9 |k10|k11|k12|k13|k14|k15|k16|k17|k18|
 0x66| |  macro3-4 digital joystick data   |c|-|
 ```
+
+## ImHex Pattern Definition
+An ImHex pattern definition file has been added as config.hexpat to assist in editing the configuration data using ImHex
+or other binary file editor compatible with the pattern definition for ImHex.
